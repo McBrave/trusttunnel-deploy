@@ -1,0 +1,39 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
+*.tfplan
+# Note: .terraform.lock.hcl is intentionally NOT ignored -- it pins
+# provider versions and should be committed for reproducible builds.
+
+# Secrets / keys / credentials  (NEVER commit these)
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+.env
+.env.*
+credentials
+aws_credentials
+
+# Ansible
+*.retry
+# Vault: ignore the password file always; the encrypted vault itself
+# is safe to commit, but the password that decrypts it must never be.
+vault_pass.txt
+.vault_pass
+*.vault-password
+
+# Kubernetes (later phases) -- avoid committing rendered secrets/kubeconfig
+kubeconfig
+*.kubeconfig
+
+# Editors / OS
+.DS_Store
+.vscode/
+*.swp
