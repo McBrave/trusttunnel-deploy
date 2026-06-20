@@ -1,0 +1,6 @@
+# Copy this file to terraform.tfvars and fill in your real values.
+# terraform.tfvars is gitignored on purpose -- don't commit it,
+# since it contains your SSH key and home/office IP.
+
+ssh_public_key   = "ssh-ed25519 AAAA...your-actual-public-key... you@yourhost"
+ssh_allowed_cidr = "public-IP/32" # your current public IP, /32

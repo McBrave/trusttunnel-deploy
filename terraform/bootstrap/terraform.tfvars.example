@@ -1,0 +1,4 @@
+# Copy this file to terraform.tfvars and fill in a globally-unique bucket name.
+# terraform.tfvars is gitignored on purpose -- don't commit it.
+
+state_bucket_name = "unique-bucket-name"
