@@ -80,9 +80,10 @@ trust-tunnel-infra/
 ├── terraform/
 │   ├── bootstrap/            # One-time: creates S3 bucket + DynamoDB lock (local state)
 │   ├── modules/
-│   │   └── vpc/              # Reusable network module (VPC, subnet, IGW, SG)
+│   │   ├── vpc/              # Reusable network module (VPC, subnet, IGW, route table, SG)
+│   │   └── ec2/             # Reusable compute module (EC2, Elastic IP, key pair)
 │   └── environments/
-│       └── dev/              # Calls the module + EC2/EIP; state lives in S3
+│       └── dev/             # Calls both modules; state lives in S3
 ├── ansible/
 │   ├── roles/
 │   │   └── trusttunnel/      # Install + configure the TrustTunnel server
@@ -104,20 +105,21 @@ Built in phases — each is independently demoable. Updated as I go.
 
 | Phase | Scope | Status |
 |---|---|---|
-| 1 | **Terraform** — AWS infrastructure + remote state | 🚧 In progress |
-| 2 | **Ansible** — TrustTunnel install & configuration | ⬜ Planned |
+| 1 | **Terraform** — AWS infrastructure + remote state | ✅ Complete |
+| 2 | **Ansible** — TrustTunnel install & configuration | 🚧 Next |
 | 3 | **GitHub Actions** — CI/CD pipeline | ⬜ Planned |
 | 4 | **Kubernetes** — observability stack | ⬜ Planned |
 
 <details>
 <summary>Detailed checklist</summary>
 
-**Phase 1 — Terraform**
-- [ ] Bootstrap: S3 bucket (versioned, encrypted) + DynamoDB lock table
-- [ ] VPC module: VPC, public subnet, IGW, route table, security group
-- [ ] Dev environment: EC2, Elastic IP, key pair, calls VPC module
-- [ ] Remote backend wired to S3
-- [ ] Outputs expose the server IP for Ansible
+**Phase 1 — Terraform** ✅
+- [x] Bootstrap: S3 bucket (versioned, encrypted) + DynamoDB lock table
+- [x] VPC module: VPC, public subnet, IGW, route table, security group
+- [x] EC2 module: instance, Elastic IP, key pair
+- [x] Dev environment: calls the VPC + EC2 modules
+- [x] Remote backend wired to S3
+- [x] Outputs expose the server IP for Ansible
 
 **Phase 2 — Ansible**
 - [ ] Dynamic inventory from Terraform output
@@ -155,24 +157,26 @@ Built in phases — each is independently demoable. Updated as I go.
 
 ### Phase 1 — Provision infrastructure
 
+> Full run order, required variables, and gotchas are in [`terraform/README.md`](terraform/README.md). Quick version:
+
 ```bash
 # 1. One-time: create the remote-state backend (uses local state)
 cd terraform/bootstrap
 terraform init
-terraform apply -var="bucket_name=<your-unique-bucket-name>"
+terraform apply -var="state_bucket_name=<your-unique-bucket-name>"
 
 # 2. Point the dev backend at that bucket
 #    edit terraform/environments/dev/backend.tf → set the bucket name
 
 # 3. Provision the infrastructure
 cd ../environments/dev
+cp terraform.tfvars.example terraform.tfvars   # then fill in your SSH key + IP
 terraform init
 terraform plan
 terraform apply
 ```
 
-<!-- TODO: phases 2–4 commands as each is built -->
-
+> **Region note:** this targets `eu-north-1`, which has no `t2` instance family — use `t3.micro` (also the free-tier type there).
 ### Phase 2 — Configure the server *(coming soon)*
 
 ### Phase 3 — CI/CD *(coming soon)*
