@@ -1,0 +1,18 @@
+---
+# Main playbook: turns the bare Terraform-provisioned server into a running
+# TrustTunnel VPN endpoint.
+#
+# Run from the ansible/ directory:
+#   ./inventory/generate-inventory.sh      # refresh the IP from Terraform
+#   ansible-playbook playbooks/site.yml
+
+- name: Configure TrustTunnel VPN endpoint
+  hosts: vpn
+  become: true
+
+  # Secret credentials live in a git-ignored file (see vpn_secrets.yml.example).
+  vars_files:
+    - ../vpn_secrets.yml
+
+  roles:
+    - trusttunnel

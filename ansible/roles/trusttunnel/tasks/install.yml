@@ -1,0 +1,29 @@
+---
+# Install TrustTunnel using the project's official install script.
+#
+# The script downloads the latest prebuilt linux-x86_64 package and unpacks it
+# to /opt/trusttunnel. We deliberately use the upstream installer for
+# simplicity; the trade-off is that it always fetches "latest" rather than a
+# pinned version. To pin later, the installer supports `-V <version>`.
+
+- name: Install TrustTunnel endpoint (official install script)
+  ansible.builtin.shell:
+    cmd: "set -o pipefail && curl -fsSL {{ trusttunnel_install_script_url }} | sh"
+    executable: /bin/bash
+    # Idempotency: skip entirely if the binary already exists. Re-running the
+    # playbook won't re-download or reinstall.
+    creates: "{{ trusttunnel_binary }}"
+
+- name: Confirm the endpoint binary is present
+  ansible.builtin.stat:
+    path: "{{ trusttunnel_binary }}"
+  register: trusttunnel_binary_stat
+
+- name: Fail early if the install did not produce the binary
+  ansible.builtin.assert:
+    that:
+      - trusttunnel_binary_stat.stat.exists
+    fail_msg: >-
+      TrustTunnel binary not found at {{ trusttunnel_binary }} after install.
+      Check the install script output and the target architecture.
+    success_msg: "TrustTunnel endpoint installed at {{ trusttunnel_binary }}."

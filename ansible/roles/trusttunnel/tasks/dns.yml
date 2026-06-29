@@ -1,0 +1,38 @@
+# tasks/dns.yml
+---
+# Creates the DNS A record for the VPN subdomain in Cloudflare.
+# Runs before certbot — Let's Encrypt needs DNS to resolve before
+# it can issue a certificate.
+
+- name: Check if DNS A record already exists in Cloudflare
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records?name={{ trusttunnel_domain }}&type=A"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+  register: cf_lookup
+
+- name: Create DNS A record via Cloudflare API
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      type: "A"
+      name: "{{ trusttunnel_domain }}"
+      content: "{{ ansible_host }}"
+      ttl: 1
+      proxied: false
+    status_code: [200, 201]
+  register: dns_result
+  when: cf_lookup.json.result | length == 0
+
+- name: Wait for DNS propagation
+  ansible.builtin.pause:
+    seconds: 30
+    prompt: "Waiting 30s for DNS to propagate before certbot runs..."
+  when: cf_lookup.json.result | length == 0

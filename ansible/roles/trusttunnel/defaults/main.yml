@@ -1,0 +1,40 @@
+# Default variables for the trusttunnel role.
+# Override the placeholders (domain, email) for your environment — either in
+# group_vars, the playbook, or your git-ignored secrets file.
+
+# --- Install -----------------------------------------------------------------
+trusttunnel_install_dir: /opt/trusttunnel
+trusttunnel_install_script_url: "https://raw.githubusercontent.com/TrustTunnel/TrustTunnel/refs/heads/master/scripts/install.sh"
+trusttunnel_binary: "{{ trusttunnel_install_dir }}/trusttunnel_endpoint"
+trusttunnel_service_name: trusttunnel
+
+# --- Endpoint / network ------------------------------------------------------
+# 0.0.0.0:443 = listen on all interfaces, port 443 (looks like normal HTTPS).
+trusttunnel_listen_address: "0.0.0.0:443"
+trusttunnel_ipv6_available: true
+trusttunnel_allow_private_network_connections: false
+
+# --- TLS / domain  (CHANGE THESE) -------------------------------------------
+# Your real domain, whose DNS A record points at the server's Elastic IP.
+trusttunnel_domain: "trustt.usain.xyz"
+# Let's Encrypt puts certs here once certbot succeeds (these paths feed hosts.toml).
+trusttunnel_cert_chain_path: "/etc/letsencrypt/live/{{ trusttunnel_domain }}/fullchain.pem"
+trusttunnel_private_key_path: "/etc/letsencrypt/live/{{ trusttunnel_domain }}/privkey.pem"
+
+# --- Let's Encrypt  (CHANGE THIS) -------------------------------------------
+trusttunnel_letsencrypt_email: "example1111@gmail.com"
+
+# --- Metrics (Prometheus) — enabled for Phase 4 -----------------------------
+# Bound to localhost on purpose: metrics are NOT exposed to the internet
+# (port 1987 is not open in the security group). Phase 4 handles scraping.
+trusttunnel_metrics_enabled: true
+trusttunnel_metrics_address: "127.0.0.1:1987"
+
+# --- Config file paths (inside the install dir) -----------------------------
+trusttunnel_vpn_config: "{{ trusttunnel_install_dir }}/vpn.toml"
+trusttunnel_hosts_config: "{{ trusttunnel_install_dir }}/hosts.toml"
+trusttunnel_credentials_file: "{{ trusttunnel_install_dir }}/credentials.toml"
+
+
+# Credentials (username/password) are NOT here — they're secret.
+# They live in the git-ignored vpn_secrets.yml (see vpn_secrets.yml.example).

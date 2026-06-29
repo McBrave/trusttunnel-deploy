@@ -1,0 +1,60 @@
+---
+# Obtain and maintain a Let's Encrypt TLS certificate via certbot.
+#
+# Mode: --standalone
+#   certbot spins up its own temporary HTTP server on port 80 to answer
+#   the ACME challenge. We use this because TrustTunnel owns port 443
+#   and there is no nginx/apache frontend running.
+#
+# Prerequisites:
+#   - Port 80 must be open in the EC2 security group (Terraform handles this).
+#   - The domain's DNS A record must already point at the server's Elastic IP
+#     before this task runs — Let's Encrypt will verify it over the internet.
+#     This means the playbook cannot fully run until DNS has propagated.
+
+- name: Install certbot (standalone, no web server plugin needed)
+  ansible.builtin.apt:
+    name: certbot
+    state: present
+    update_cache: true
+
+- name: Obtain TLS certificate via certbot standalone
+  ansible.builtin.command:
+    cmd: >
+      certbot certonly
+      --standalone
+      --non-interactive
+      --agree-tos
+      --email {{ trusttunnel_letsencrypt_email }}
+      --domain {{ trusttunnel_domain }}
+    # Idempotency: skip if the cert chain already exists.
+    # Re-running the playbook won't re-request a cert (avoids rate limits).
+    creates: "{{ trusttunnel_cert_chain_path }}"
+  notify: Restart trusttunnel
+
+- name: Confirm certificate files are present
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  register: cert_stat
+  loop:
+    - "{{ trusttunnel_cert_chain_path }}"
+    - "{{ trusttunnel_private_key_path }}"
+
+- name: Fail early if any certificate file is missing
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+    fail_msg: >-
+      Expected certificate file not found: {{ item.item }}.
+      Ensure DNS for {{ trusttunnel_domain }} points at this server's IP
+      and port 80 is reachable from the internet before running certbot.
+    success_msg: "Certificate file present: {{ item.item }}"
+  loop: "{{ cert_stat.results }}"
+
+- name: Ensure certbot renewal timer is enabled
+  # Ubuntu installs a systemd timer (certbot.timer) automatically.
+  # This task makes it explicit and verifiable — certs auto-renew before expiry.
+  ansible.builtin.systemd:
+    name: certbot.timer
+    enabled: true
+    state: started

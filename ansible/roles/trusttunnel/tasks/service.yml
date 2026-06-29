@@ -1,0 +1,53 @@
+---
+# Enable and start the TrustTunnel systemd service.
+# Also generates the client connection config so the VPN is immediately usable.
+
+- name: Render trusttunnel systemd service unit
+  ansible.builtin.template:
+    src: trusttunnel.service.j2
+    dest: "/etc/systemd/system/{{ trusttunnel_service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart trusttunnel
+
+- name: Enable and start trusttunnel service
+  ansible.builtin.systemd:
+    name: "{{ trusttunnel_service_name }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Wait for trusttunnel service to be active
+  ansible.builtin.command:
+    cmd: "systemctl is-active {{ trusttunnel_service_name }}"
+  register: service_status
+  retries: 5
+  delay: 5
+  until: service_status.stdout == "active"
+  changed_when: false
+
+- name: Fail if trusttunnel service is not active
+  ansible.builtin.assert:
+    that:
+      - service_status.stdout == "active"
+    fail_msg: >-
+      TrustTunnel service failed to start.
+      Run: journalctl -u {{ trusttunnel_service_name }} -n 50 to diagnose.
+    success_msg: "TrustTunnel service is running."
+
+- name: Generate client connection config
+  ansible.builtin.command:
+    cmd: >
+      {{ trusttunnel_binary }}
+      -c {{ trusttunnel_client_username }}
+      -f deeplink
+      -a {{ trusttunnel_domain }}
+      {{ trusttunnel_vpn_config }}
+      {{ trusttunnel_hosts_config }}
+  register: client_config
+  changed_when: false
+
+- name: Show client deeplink
+  ansible.builtin.debug:
+    msg: "{{ client_config.stdout }}"

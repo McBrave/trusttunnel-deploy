@@ -7,6 +7,8 @@
 crash.log
 crash.*.log
 *.tfplan
+apply-output.txt
+**/apply-output.txt
 # Note: .terraform.lock.hcl is intentionally NOT ignored -- it pins
 # provider versions and should be committed for reproducible builds.
 
@@ -20,6 +22,7 @@ crash.*.log
 .env.*
 credentials
 aws_credentials
+ansible/inventory/hosts.ini
 
 # Ansible
 *.retry
@@ -37,3 +40,4 @@ kubeconfig
 .DS_Store
 .vscode/
 *.swp
+

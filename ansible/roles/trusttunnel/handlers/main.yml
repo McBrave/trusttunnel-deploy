@@ -1,0 +1,14 @@
+---
+# Handlers are only triggered when a task notifies them, and run once at
+# the end of the play — even if notified multiple times.
+
+- name: Restart trusttunnel
+  ansible.builtin.systemd:
+    name: "{{ trusttunnel_service_name }}"
+    state: restarted
+    daemon_reload: true
+
+- name: Reload trusttunnel
+  ansible.builtin.systemd:
+    name: "{{ trusttunnel_service_name }}"
+    state: reloaded

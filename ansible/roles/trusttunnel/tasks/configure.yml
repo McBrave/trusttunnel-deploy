@@ -1,0 +1,37 @@
+---
+# Render TrustTunnel configuration files from Jinja2 templates.
+#
+# All three config files are derived from role variables (defaults/main.yml)
+# and secrets (vpn_secrets.yml). Changing any variable and re-running the
+# playbook will update the file and trigger a service restart via the handler.
+
+- name: Render hosts.toml (TLS certificate paths and listen address)
+  ansible.builtin.template:
+    src: hosts.toml.j2
+    dest: "{{ trusttunnel_hosts_config }}"
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Restart trusttunnel
+
+- name: Render vpn.toml (tunnel routing config)
+  ansible.builtin.template:
+    src: vpn.toml.j2
+    dest: "{{ trusttunnel_vpn_config }}"
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Restart trusttunnel
+
+- name: Render credentials.toml (client username/password — mode 0600)
+  ansible.builtin.template:
+    src: credentials.toml.j2
+    dest: "{{ trusttunnel_credentials_file }}"
+    owner: root
+    group: root
+    # 0600: credentials readable only by root — not by other users on the host.
+    mode: "0600"
+  notify: Restart trusttunnel
+  # Mark no_log so the rendered content (including password) never appears
+  # in Ansible output or CI logs.
+  no_log: true
