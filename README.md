@@ -158,17 +158,20 @@ Built in phases — each is independently demoable. Updated as I go.
 
 ### Phase 1 — Provision infrastructure
 
+> Full run order, required variables, and gotchas are in [`terraform/README.md`](terraform/README.md). Quick version:
+
 ```bash
 # 1. One-time: create the remote-state backend (uses local state)
 cd terraform/bootstrap
 terraform init
-terraform apply -var="bucket_name=<your-unique-bucket-name>"
+terraform apply -var="state_bucket_name=<your-unique-bucket-name>"
 
 # 2. Point the dev backend at that bucket
 #    edit terraform/environments/dev/backend.tf → set the bucket name
 
 # 3. Provision the infrastructure
 cd ../environments/dev
+cp terraform.tfvars.example terraform.tfvars   # then fill in your SSH key + IP
 terraform init
 terraform plan
 terraform apply
