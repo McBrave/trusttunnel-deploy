@@ -8,9 +8,7 @@
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?logo=kubernetes&logoColor=white)
 ![AWS](https://img.shields.io/badge/AWS-232F3E?logo=amazonaws&logoColor=white)
 
-<!-- TODO: once CI is set up, add a live workflow badge here, e.g.
-![CI](https://github.com/<user>/<repo>/actions/workflows/terraform.yml/badge.svg)
--->
+![Deploy TrustTunnel](https://github.com/McBrave/trusttunnel-deploy/actions/workflows/deploy.yml/badge.svg)
 
 ---
 
@@ -107,7 +105,7 @@ Built in phases — each is independently demoable. Updated as I go.
 |---|---|---|
 | 1 | **Terraform** — AWS infrastructure + remote state | ✅ Complete |
 | 2 | **Ansible** — TrustTunnel install & configuration | ✅ Complete |
-| 3 | **GitHub Actions** — CI/CD pipeline | 🚧 In progress |
+| 3 | **GitHub Actions** — CI/CD pipeline | ✅ Complete |
 | 4 | **Kubernetes** — observability stack | ⬜ Planned |
 
 <details>
@@ -131,10 +129,11 @@ Built in phases — each is independently demoable. Updated as I go.
 - [x] Secrets managed with Ansible Vault
 
 **Phase 3 — GitHub Actions**
-- [ ] AWS auth via OIDC (no long-lived keys)
-- [ ] `terraform plan` on pull requests
-- [ ] `terraform apply` on merge to main
-- [ ] Trigger Ansible after apply
+- [x] AWS auth via OIDC (no long-lived keys)
+- [x] `terraform plan` on pull requests (with PR comment)
+- [x] `terraform apply` on merge to main
+- [x] Trigger Ansible after apply
+- [x] Dynamic security group rule for runner SSH access (with auto-cleanup)
 
 **Phase 4 — Kubernetes**
 - [ ] Prometheus + Grafana via Helm
@@ -209,7 +208,21 @@ At the end of the run, a `tt://` deeplink is printed. Open it in the TrustTunnel
 
 See [`ansible/README.md`](ansible/README.md) for full details on configuration, tags, and security decisions.
 
-### Phase 3 — CI/CD *(coming soon)*
+### Phase 3 — CI/CD
+
+The pipeline runs automatically on every push to `main`:
+
+1. **Terraform** provisions (or updates) all AWS infrastructure
+2. **Ansible** configures the server — installs TrustTunnel, obtains a TLS cert, starts the service
+
+On pull requests, Terraform runs `plan` only and comments the output on the PR for review.
+
+Key design choices:
+- **OIDC authentication** — no long-lived AWS keys stored as secrets; GitHub gets short-lived tokens via OpenID Connect
+- **Dynamic SSH access** — the runner's public IP is temporarily authorized in the security group, then revoked in an `always()` cleanup step (even on failure)
+- **Secrets isolation** — vault password and SSH key are written to ephemeral files, never printed to logs, and deleted after use
+
+> [View pipeline runs](https://github.com/McBrave/trusttunnel-deploy/actions)
 
 ### Phase 4 — Observability *(coming soon)*
 
@@ -229,7 +242,9 @@ The reasoning behind the non-obvious choices — the parts worth discussing.
 
 - **Kubernetes hosts observability, not the VPN itself.** Running the VPN's data plane inside Kubernetes would require privileged pods and host networking — a real source of friction. Keeping the VPN server on a dedicated VM (configured by Ansible) and using Kubernetes only for the monitoring/management plane keeps responsibilities clean and reflects where each tool genuinely fits.
 
-- **OIDC for AWS auth in CI.** GitHub Actions authenticates to AWS via short-lived OIDC tokens instead of long-lived access keys stored as secrets — fewer standing credentials to leak.
+- **OIDC for AWS auth in CI.** GitHub Actions authenticates to AWS via short-lived OIDC tokens instead of long-lived access keys stored as secrets — fewer standing credentials to leak. The IAM role is scoped to only the permissions this project needs (EC2, S3 state bucket, DynamoDB lock table) and locked to this specific repo via the OIDC trust policy.
+
+- **Ephemeral SSH access in CI.** Rather than opening port 22 to the world, the pipeline dynamically adds the runner's IP to the security group before Ansible runs, and revokes it afterward with an `always()` guard — so it cleans up even on failure.
 
 ---
 
