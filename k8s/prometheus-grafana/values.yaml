@@ -1,0 +1,96 @@
+# Helm values for kube-prometheus-stack.
+#
+# Install / upgrade:
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm repo update
+#   helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+#     -n monitoring --create-namespace \
+#     -f k8s/prometheus-grafana/values.yaml
+#
+# deploy.sh passes VPN_PRIVATE_IP and GRAFANA_DOMAIN as sed-substituted placeholders
+# so this file is never modified directly.
+
+# --- Prometheus: scrape the VPN instance's metrics endpoint ----------------
+# TrustTunnel binds metrics to 127.0.0.1:1987, but the security group rule
+# (SG-to-SG bridge in k3s.tf) allows the k3s node to reach it over the VPC
+# private network on port 1987.
+prometheus:
+  prometheusSpec:
+    additionalScrapeConfigs:
+      - job_name: "trusttunnel-vpn"
+        # Static target — TrustTunnel isn't k8s-native, no service discovery.
+        # Replace <VPN_PRIVATE_IP> with the VPN instance's actual private IP
+        # (from `terraform output vpn_private_ip`).
+        static_configs:
+          - targets:
+              - "<VPN_PRIVATE_IP>:1987"
+            labels:
+              instance: "trusttunnel-vpn"
+        metrics_path: "/metrics"
+        scrape_interval: "30s"
+
+# --- Grafana: expose via Ingress, cert-manager handles TLS ----------------
+grafana:
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    hosts:
+      # Replace <GRAFANA_DOMAIN> with your actual subdomain (e.g. grafana.usain.xyz)
+      - <GRAFANA_DOMAIN>
+    tls:
+      - secretName: grafana-tls
+        hosts:
+          - <GRAFANA_DOMAIN>
+
+  # Default admin password — change after first login or override via --set
+  adminPassword: "changeme-on-first-login"
+
+  # --------------------------------------------------------------------------
+  # Dashboard auto-provisioning — Grafana discovers these at startup via the
+  # sidecar (grafana-sc-dashboard).  No manual UI clicks required.
+  #
+  # How it works:
+  #   1. grafana.sidecar.dashboards.enabled = true (already the default in
+  #      kube-prometheus-stack) makes the sc-dashboard container watch for
+  #      ConfigMaps labelled `grafana_dashboard: "1"` in `searchNamespace`.
+  #   2. grafana.dashboardProviders declares a provider folder named
+  #      "trusttunnel" pointing at the filesystem path the sidecar writes to.
+  #   3. grafana.dashboards.trusttunnel.trusttunnel-overview references the
+  #      JSON embedded via grafana.dashboardsConfigMaps — which Helm renders
+  #      into a ConfigMap carrying the correct label automatically.
+  # --------------------------------------------------------------------------
+
+  sidecar:
+    dashboards:
+      enabled: true
+      # Watch the monitoring namespace only (where this chart is installed).
+      searchNamespace: monitoring
+      # Grafana will load any ConfigMap with this label in searchNamespace.
+      label: grafana_dashboard
+      labelValue: "1"
+      # Sub-folder inside Grafana where discovered dashboards appear.
+      folder: /tmp/dashboards
+      # Enable multi-folder support so folder structure is mapped to UI.
+      folderAnnotation: grafana_folder
+      provider:
+        foldersFromFilesStructure: true
+
+# --- Alertmanager: disable for now (no notification targets configured) ----
+alertmanager:
+  enabled: false
+
+# --- Resource limits tuned for t3.small (2 GB RAM total) -------------------
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+nodeExporter:
+  enabled: true
+kubeStateMetrics:
+  enabled: true

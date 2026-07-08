@@ -1,0 +1,16 @@
+---
+# Default variables for the k3s role.
+
+# k3s install channel — "stable" tracks the latest stable release.
+# Pin to a specific version (e.g. "v1.29.4+k3s1") for reproducibility.
+k3s_version: ""
+k3s_install_channel: "stable"
+
+# Where to save the fetched kubeconfig on the control machine.
+k3s_kubeconfig_local_path: "{{ playbook_dir }}/../kubeconfig-k3s.yaml"
+
+# k3s binary path (used for idempotency guard)
+k3s_binary: /usr/local/bin/k3s
+
+# Grafana subdomain — DNS A record will be created pointing to the k3s node's EIP.
+grafana_domain: "grafana.usain.xyz"

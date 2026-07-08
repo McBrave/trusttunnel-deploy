@@ -32,9 +32,11 @@ vault_pass.txt
 .vault_pass
 *.vault-password
 
-# Kubernetes (later phases) -- avoid committing rendered secrets/kubeconfig
+# Kubernetes — avoid committing rendered secrets/kubeconfig
 kubeconfig
 *.kubeconfig
+kubeconfig-k3s.yaml
+ansible/kubeconfig-k3s.yaml
 
 # Editors / OS
 .DS_Store

@@ -12,3 +12,13 @@ output "security_group_id" {
   description = "Security group ID attached to the instance."
   value       = aws_security_group.trusttunnel.id
 }
+
+output "key_pair_name" {
+  description = "Name of the SSH key pair. Reused by other instances in the same environment."
+  value       = aws_key_pair.deployer.key_name
+}
+
+output "private_ip" {
+  description = "Private IP of the VPN instance (for VPC-internal communication)."
+  value       = aws_instance.trusttunnel.private_ip
+}

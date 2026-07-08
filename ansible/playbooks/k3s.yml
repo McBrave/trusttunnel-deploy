@@ -1,0 +1,16 @@
+---
+# Playbook: install k3s on the observability node.
+#
+# Run from the ansible/ directory:
+#   ./inventory/generate-inventory.sh      # refresh IPs from Terraform
+#   ansible-playbook playbooks/k3s.yml
+
+- name: Install k3s on the observability node
+  hosts: k3s
+  become: true
+
+  vars_files:
+    - ../vpn_secrets.yml
+
+  roles:
+    - k3s

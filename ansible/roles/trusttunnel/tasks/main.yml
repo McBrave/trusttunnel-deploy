@@ -26,3 +26,6 @@
 
 - import_tasks: service.yml
   tags: [service]
+
+- import_tasks: metrics_bridge.yml
+  tags: [metrics]

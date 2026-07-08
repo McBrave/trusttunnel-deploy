@@ -1,0 +1,27 @@
+---
+# Install k3s via the official install script, idempotently.
+#
+# The `creates:` guard ensures re-running the playbook doesn't re-download
+# or re-install — same pattern as roles/trusttunnel/tasks/install.yml.
+
+- name: Install k3s (official install script)
+  ansible.builtin.shell:
+    cmd: >
+      set -o pipefail &&
+      curl -sfL https://get.k3s.io |
+      {% if k3s_version != "" %}INSTALL_K3S_VERSION={{ k3s_version }}{% endif %}
+      {% if k3s_install_channel != "" %}INSTALL_K3S_CHANNEL={{ k3s_install_channel }}{% endif %}
+      sh -s - server
+      --write-kubeconfig-mode=644
+      --tls-san={{ ansible_host }}
+    executable: /bin/bash
+    creates: "{{ k3s_binary }}"
+
+- name: Wait for k3s node to become Ready
+  ansible.builtin.command:
+    cmd: k3s kubectl wait --for=condition=Ready node --all --timeout=120s
+  changed_when: false
+  retries: 3
+  delay: 10
+  register: k3s_ready
+  until: k3s_ready.rc == 0

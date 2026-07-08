@@ -1,8 +1,13 @@
-# tasks/dns.yml
 ---
-# Creates the DNS A record for the VPN subdomain in Cloudflare.
+# Creates or updates the DNS A record for the VPN subdomain in Cloudflare.
 # Runs before certbot — Let's Encrypt needs DNS to resolve before
 # it can issue a certificate.
+#
+# Handles three cases:
+#   1. No record exists           -> create it
+#   2. Record exists, IP matches  -> do nothing
+#   3. Record exists, IP differs  -> update it (e.g. after terraform destroy
+#                                     + apply assigns a new Elastic IP)
 
 - name: Check if DNS A record already exists in Cloudflare
   ansible.builtin.uri:
@@ -28,11 +33,29 @@
       ttl: 1
       proxied: false
     status_code: [200, 201]
-  register: dns_result
+  register: dns_create_result
   when: cf_lookup.json.result | length == 0
+
+- name: Update DNS A record if the IP has changed
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records/{{ cf_lookup.json.result[0].id }}"
+    method: PATCH
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      content: "{{ ansible_host }}"
+    status_code: [200]
+  register: dns_update_result
+  when:
+    - cf_lookup.json.result | length > 0
+    - cf_lookup.json.result[0].content != ansible_host
 
 - name: Wait for DNS propagation
   ansible.builtin.pause:
     seconds: 30
     prompt: "Waiting 30s for DNS to propagate before certbot runs..."
-  when: cf_lookup.json.result | length == 0
+  when: >
+    (dns_create_result is not skipped) or
+    (dns_update_result is not skipped)

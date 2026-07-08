@@ -12,3 +12,8 @@
   ansible.builtin.systemd:
     name: "{{ trusttunnel_service_name }}"
     state: reloaded
+
+- name: restart metrics bridge
+  ansible.builtin.systemd:
+    name: trusttunnel-metrics-bridge
+    state: restarted

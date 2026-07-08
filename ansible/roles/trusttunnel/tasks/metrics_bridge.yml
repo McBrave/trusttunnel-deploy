@@ -1,0 +1,43 @@
+---
+# Forwards metrics traffic arriving on the private interface to localhost.
+#
+# TrustTunnel binds metrics to 127.0.0.1:1987 (loopback only) — that's
+# intentional and must stay that way. But Prometheus on the k3s node needs
+# to reach it over the VPC private network. socat bridges the gap:
+#   <private_ip>:1987  →  127.0.0.1:1987
+#
+# The security group already restricts port 1987 to the k3s node's SG only,
+# so binding socat to the private IP doesn't expose metrics publicly.
+
+- name: Install socat for metrics bridge
+  ansible.builtin.apt:
+    name: socat
+    state: present
+    update_cache: true
+
+- name: Create metrics-bridge systemd service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/trusttunnel-metrics-bridge.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Forward Prometheus metrics from private interface to localhost
+      After=network-online.target trusttunnel.service
+      Wants=network-online.target
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/bin/socat TCP-LISTEN:1987,bind={{ ansible_default_ipv4.address }},fork,reuseaddr TCP:127.0.0.1:1987
+      Restart=on-failure
+      RestartSec=5
+
+      [Install]
+      WantedBy=multi-user.target
+  notify: restart metrics bridge
+
+- name: Enable and start metrics bridge
+  ansible.builtin.systemd:
+    name: trusttunnel-metrics-bridge
+    enabled: true
+    state: started
+    daemon_reload: true

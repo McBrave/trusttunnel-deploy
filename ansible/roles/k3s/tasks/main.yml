@@ -1,0 +1,9 @@
+---
+- name: Install k3s
+  ansible.builtin.include_tasks: install.yml
+
+- name: Fetch kubeconfig to control machine
+  ansible.builtin.include_tasks: fetch_kubeconfig.yml
+
+- name: Create Grafana DNS record
+  ansible.builtin.include_tasks: grafana_dns.yml

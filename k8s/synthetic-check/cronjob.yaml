@@ -1,0 +1,49 @@
+# Synthetic uptime check: periodically connects through the VPN endpoint
+# and exits non-zero on failure. kube-state-metrics (bundled in
+# kube-prometheus-stack) automatically tracks Job success/failure as
+# kube_job_status_succeeded / kube_job_status_failed — no custom exporter needed.
+#
+# Replace <VPN_PUBLIC_DOMAIN> with your TrustTunnel domain (e.g. trustt.usain.xyz).
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vpn-synthetic-check
+  namespace: monitoring
+spec:
+  schedule: "*/5 * * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 60
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: check
+              image: curlimages/curl:8.7.1
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  # Connect to the VPN endpoint. The proxy server will require
+                  # authentication and respond with 407. We accept 407 (or 200)
+                  # as a successful probe proving the daemon is alive.
+                  STATUS=$(curl --max-time 10 --silent --output /dev/null \
+                    --write-out "%{http_code}" \
+                    "https://<VPN_PUBLIC_DOMAIN>:443")
+                  if [ "$STATUS" -eq 407 ] || [ "$STATUS" -eq 200 ]; then
+                    exit 0
+                  else
+                    echo "Uptime check failed: Expected HTTP 407/200, got ${STATUS}" >&2
+                    exit 1
+                  fi
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 16Mi
+                limits:
+                  memory: 32Mi
+
